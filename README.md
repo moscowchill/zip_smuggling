@@ -11,7 +11,9 @@ This will produce important_data.zip within the script folder. Transfer this zip
 ## About
 This project leverages an older one of mine, [lnk_generator](), that allows you to create arbitrary shortcut files using a preset template. Check out that repo for more of the details / more complete scripts and notes on generating shortcut files.
 
-The data that is smuggled is placed in-between the data of the files contained within the archive and the archives central directory, which serves as a table of contents of sorts for the zip file. This central directory contains offsets of the files within the archive, so while our injected data is present within the zip it isn't tracked or indexed by the central directory and thus cannot be easily viewed or extracted. The following graphic displays the general structure of a zip on the left, and where our data has been inserted on the right.
+The data that is smuggled is placed in-between the data of the files contained within the archive and the archives central directory, which serves as a table of contents of sorts for the zip file. This central directory contains offsets of the files within the archive, so while our injected data is present within the zip it isn't tracked or indexed by the central directory and thus cannot be easily viewed or extracted. The python script finds "End of Central Directory" offset within the zip file and updates it with the new location of the central directory after the smuggled data has been injected. The following graphic displays the general structure of a zip on the left, and where our data has been inserted on the right:
+
+
 
 The smuggled data is extracted using a powershell command:
 
