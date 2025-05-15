@@ -9,11 +9,11 @@ The script requires a name for your zip file / shortcut file / smuggled file, as
 This will produce important_data.zip within the script folder. Transfer this zip file to a Windows machine, double-click into the zip or extract it, and then click the shortcut contained within. The data you provided to smuggle will be retrieved from the zip file, saved to disk, and opened as a text file.
 
 ## About
-This project leverages an older one of mine, [lnk_generator](), that allows you to create arbitrary shortcut files using a preset template. Check out that repo for more of the details / more complete scripts and notes on generating shortcut files.
+This project leverages an older one of mine, [lnk_generator](https://github.com/Octoberfest7/lnk_generator), that allows you to create arbitrary shortcut files using a preset template. Check out that repo for more of the details / more complete scripts and notes on generating shortcut files.
 
 The data that is smuggled is placed in-between the data of the files contained within the archive and the archives central directory, which serves as a table of contents of sorts for the zip file. This central directory contains offsets of the files within the archive, so while our injected data is present within the zip it isn't tracked or indexed by the central directory and thus cannot be easily viewed or extracted. The python script finds "End of Central Directory" offset within the zip file and updates it with the new location of the central directory after the smuggled data has been injected. The following graphic displays the general structure of a zip on the left, and where our data has been inserted on the right:
 
-
+![image](https://github.com/user-attachments/assets/c15006ef-5aba-4b32-8b4e-7715c7072792)
 
 The smuggled data is extracted using a powershell command:
 
