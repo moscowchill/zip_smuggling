@@ -155,4 +155,4 @@ Contributions welcome! Please submit pull requests with:
 
 ---
 
-**Note**: Always use the optimized version (`zip_smuggle_optimized.py`) for production use. The original version is kept for reference only.
+**Note**: Always use the optimized version (`zip)smuggle.py`) for production use. The original version is kept for reference only.
